@@ -1,0 +1,29 @@
+.eunit
+*.o
+*.beam
+*.plt
+erl_crash.dump
+.concrete/DEV_MODE
+
+# rebar 2.x
+.rebar
+rel/example_project
+ebin/*
+deps
+
+# rebar 3
+.rebar3
+_build/
+_checkouts/
+rebar.lock
+
+# idea
+.idea
+*.iml
+cmake-build*
+CMakeLists.txt
+
+# nif compile temp file
+*.pdb
+*.d
+compile_commands.json
