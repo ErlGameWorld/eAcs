@@ -27,7 +27,7 @@ Uses
         {ok, DataStr} = file:read_file("吞噬星空.txt"),
         eAcs:strSize(DataStr, 0).           -> 5729268
         测试匹配
-        acTest:test4(100, "./src/test/tttt.txt").
+        acTest:test4(100, "./src/test/吞噬星空.txt").
         =====================
         execute Fun :matchSw
         execute Mod :eAcs
