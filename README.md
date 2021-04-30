@@ -1,6 +1,6 @@
 eAcs
 =====
-    基于ac算法实现的快速高效的敏感词匹配,检查,过滤功能
+    基于ac算法实现的快速高效的敏感词匹配,检查,过滤功能, 另外特殊字符不参与敏感词匹配,检查和替换, 替换是会按照原位置保留
 
 Build
 -----
@@ -9,6 +9,9 @@ Build
 
 Uses
 -----
+    敏感词预处理 去除特殊字符和去掉重复的敏感词 （SWordFile 和 OutputDirFile) 可以同名
+         脚本生成：./genAcs -f/-F SWordFile OutputDirFile
+        函数调用： genAcs:main(["-f"/"-F", SWordFile, OutputDirFile])
     创建 acsTree.erl
         脚本生成：./genAcs SWordFile OutputDir
         函数调用： genAcs:main([SWordFile, OutputDir])
@@ -42,6 +45,10 @@ Uses
         ok
         
         It's really fast!!!
+
+算法说明
+-----
+[算法说明](https://www.cnblogs.com/cmmdc/articles/7337611.html)
 
 
         

@@ -5,18 +5,71 @@
    , genTree/1
 ]).
 
+-define(Spw, <<" ~〜,，:：.。;；-_=+*&^…%$#@!！|？?'‘’\"“”`·()[]{}（）【】「」/／\\、\n\t"/utf8>>).
+
 main(Args) ->
-   [SWFile, WriteDir] = Args,
-   case file:open(SWFile, [read, raw, binary, {read_ahead, 65536}, {encoding, utf8}]) of
-      {ok, IoDevice} ->
-         {Goto, Output} = dealEveryLine(IoDevice, _Goto = #{0 => #{}}, _Output = #{}, _State = 0),
-         Fail = genFail(Goto),
-         genErl(WriteDir, Goto, Fail, Output);
-      _Err ->
-         io:format("genAcs open the file:~p error ~p~n", [SWFile, _Err])
+   case Args of
+      [SWFile, WriteDir] ->
+         case file:open(SWFile, [read, raw, binary, {read_ahead, 65536}, {encoding, utf8}]) of
+            {ok, IoDevice} ->
+               {Goto, Output} = dealEverySW(IoDevice, _Goto = #{0 => #{}}, _Output = #{}, _State = 0),
+               file:close(IoDevice),
+               Fail = genFail(Goto),
+               genSpw(WriteDir),
+               genErl(WriteDir, Goto, Fail, Output);
+            _Err ->
+               io:format("genAcs open the SWord file:~p error ~p~n", [SWFile, _Err])
+         end;
+      [Cmd, SWFile, FilterFile] when Cmd == "-F"; Cmd == "-f" ->
+         load(acsSpw, [{getSpw, 1}], binary_to_list(spwStr())),
+         case file:open(SWFile, [read, raw, binary, {read_ahead, 65536}, {encoding, utf8}]) of
+            {ok, IoDevice} ->
+               {Line, LineMap} = dealEveryFW(IoDevice, _UniqueMap = #{}, _LineMap = #{}, _Line = 1),
+               file:close(IoDevice),
+               file:delete(FilterFile),
+               writeFilter(1, Line, FilterFile, LineMap);
+            _Err ->
+               io:format("genAcs open the Filter file:~p error ~p~n", [SWFile, _Err])
+         end;
+      _ ->
+         io:format("Useage:\n\t1: to gen acsTree.erl and acsSqw.erl with  genAcs  SWFile OuputDir\n\t2: to filter special word in SWFile and frop  repetitive words with genAcs -f/F SWFile OuputDir\n"),
+         ok
    end.
 
-dealEveryLine(IoDevice, Goto, Output, MaxState) ->
+dealEveryFW(IoDevice, UniqueMap, LineMap, Line) ->
+   case file:read_line(IoDevice) of
+      {ok, DataStr} ->
+         BinStr = binary:part(DataStr, 0, byte_size(DataStr) - 1),
+         case BinStr =/= <<>> of
+            true ->
+               FilterBin = <<<<W/utf8>> || <<W/utf8>> <= BinStr, acsSpw:getSpw(W) /= true>>,
+               case UniqueMap of
+                  #{FilterBin := _} ->
+                     dealEveryFW(IoDevice, UniqueMap, LineMap, Line);
+                  _ ->
+                     dealEveryFW(IoDevice, UniqueMap#{FilterBin => 1}, LineMap#{Line => FilterBin}, Line + 1)
+               end;
+            _ ->
+               dealEveryFW(IoDevice, UniqueMap, LineMap, Line)
+         end;
+      eof ->
+         {Line, LineMap};
+      _Err ->
+         io:format("genAcs read the Filter file error ~p~n", [_Err])
+   end.
+
+writeFilter(Line, Line, FilterFile, _LineMap) ->
+   file:write_file(FilterFile, [], [append, sync]);
+writeFilter(CurLine, Line, FilterFile, LineMap) ->
+   case LineMap of
+      #{CurLine := BinStr} ->
+         file:write_file(FilterFile, [BinStr, <<"\n">>], [append]),
+         writeFilter(CurLine + 1, Line, FilterFile, LineMap);
+      _ ->
+         writeFilter(CurLine + 1, Line, FilterFile, LineMap)
+   end.
+
+dealEverySW(IoDevice, Goto, Output, MaxState) ->
    case file:read_line(IoDevice) of
       {ok, DataStr} ->
          BinStr = binary:part(DataStr, 0, byte_size(DataStr) - 1),
@@ -24,14 +77,14 @@ dealEveryLine(IoDevice, Goto, Output, MaxState) ->
             true ->
                {NewGoto, NewState, NewMaxState} = addGoto(BinStr, Goto, 0, MaxState),
                NewOutput = Output#{NewState => eAcs:strSize(BinStr, 0)},
-               dealEveryLine(IoDevice, NewGoto, NewOutput, NewMaxState);
+               dealEverySW(IoDevice, NewGoto, NewOutput, NewMaxState);
             _ ->
-               dealEveryLine(IoDevice, Goto, Output, MaxState)
+               dealEverySW(IoDevice, Goto, Output, MaxState)
          end;
       eof ->
          {Goto, Output};
       _Err ->
-         io:format("genAcs read the file error ~p~n", [_Err])
+         io:format("genAcs read the SWord file error ~p~n", [_Err])
    end.
 
 %% 从字符串列表构建ac搜索树
@@ -166,6 +219,25 @@ genFailOut([State | SortStates], Fail, Output, StrAcc) ->
       _ ->
          genFailOut(SortStates, Fail, Output, StrAcc)
    end.
+
+-spec load(Module :: atom(), Export :: [{Fun :: atom(), Arity :: pos_integer()}], Str :: string()) -> {module, Module :: atom()} | {error, _}.
+load(Module, Export, Str) ->
+   {ok, Tokens, _EndLine} = erl_scan:string(Str),
+   {ok, Forms} = erl_parse:parse_form(Tokens),
+   NewForms = [{attribute, 1, module, Module}, {attribute, 2, export, Export}, Forms],
+   {ok, _, Binary} = compile:forms(NewForms),
+   code:load_binary(Module, "", Binary).
+
+spwHead() ->
+   <<"-module(acsSpw).\n\n-compile([deterministic, no_line_info]).\n\n-export([getSpw/1]).\n\n">>.
+
+spwStr() ->
+   GetSw = <<<<"getSpw(", (integer_to_binary(Spw))/binary, ") -> true;\n">> || <<Spw/utf8>> <= ?Spw>>,
+   <<GetSw/binary, "getSpw(_) -> false.">>.
+
+genSpw(WriteDir) ->
+   FileName = filename:join([WriteDir, "acsSpw.erl"]),
+   file:write_file(FileName, <<(spwHead())/binary, (spwStr())/binary>>).
 
 genErl(WriteDir, Goto, Fail, Output) ->
    HeadStr = genHead(),
