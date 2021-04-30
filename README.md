@@ -46,9 +46,7 @@ Uses
         
         It's really fast!!!
 
-算法说明
------
-[算法说明](https://www.cnblogs.com/cmmdc/articles/7337611.html)
+
 
 
         
