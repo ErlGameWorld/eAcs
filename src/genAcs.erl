@@ -32,7 +32,7 @@ main(Args) ->
                io:format("genAcs open the Filter file:~p error ~p~n", [SWFile, _Err])
          end;
       _ ->
-         io:format("Useage:\n\t1: to gen acsTree.erl and acsSqw.erl with  genAcs  SWFile OuputDir\n\t2: to filter special word in SWFile and frop  repetitive words with genAcs -f/F SWFile OuputDir\n"),
+         io:format("Useage:\n\t1: to gen acsTree.erl and acsSqw.erl with  genAcs  SWFile OuputDir\n\t2: to filter special word in SWFile and drop  repetitive words with genAcs -f/F SWFile OuputDir\n"),
          ok
    end.
 
