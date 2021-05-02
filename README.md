@@ -19,6 +19,7 @@ Uses
         eAcs:matchSw/1               %% 返回匹配的敏感词列表
         eAcs:isHasSw/1               %% 检查是否包含敏感词
         eAcs:replaceSw/1             %% 替换敏感词
+        isHasRpSw/1                  %% 检测并替换敏感词
 
 性能
 ----- 
@@ -45,8 +46,6 @@ Uses
         ok
         
         It's really fast!!!
-
-
 
 
         

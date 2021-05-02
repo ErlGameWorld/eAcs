@@ -4,6 +4,7 @@
    matchSw/1                 %% 返回匹配的敏感词列表
    , isHasSw/1               %% 检查是否包含敏感词
    , replaceSw/1             %% 替换敏感词
+   , isHasRpSw/1             %% 检测并替换敏感词
    , strSize/2               %% 获取utf8字符串的长度
 ]).
 
@@ -128,10 +129,26 @@ getOutputIs(State) ->
    end.
 %% *************************************** matchSw end   ***************************************************************
 %% *************************************** replaceSw start *************************************************************
+-spec replaceSw(BinStr :: binary()) -> ReBinStr :: binary().
 replaceSw(BinStr) ->
    TotalSize = byte_size(BinStr),
-   MatchBIMWs = doMatchRs(BinStr, TotalSize - 1, _Index = 1, _State = 0, _MatchList = []),
-   doReplaceSw(lists:reverse(MatchBIMWs), BinStr, TotalSize, _StartPos = 0, <<>>).
+   case doMatchRs(BinStr, TotalSize - 1, _Index = 1, _State = 0, _MatchList = []) of
+      [] ->
+         BinStr;
+      MatchBIMWs ->
+         doReplaceSw(lists:reverse(MatchBIMWs), BinStr, TotalSize, _StartPos = 0, <<>>)
+   end.
+
+-spec isHasRpSw(BinStr :: binary()) -> {IsHasSw :: boolean(), ReBinStr :: binary()}.
+isHasRpSw(BinStr) ->
+   TotalSize = byte_size(BinStr),
+   case doMatchRs(BinStr, TotalSize - 1, _Index = 1, _State = 0, _MatchList = []) of
+      [] ->
+         {false, BinStr};
+      MatchBIMWs ->
+         ReBinStr = doReplaceSw(lists:reverse(MatchBIMWs), BinStr, TotalSize, _StartPos = 0, <<>>),
+         {true, ReBinStr}
+   end.
 
 doReplaceSw([], BinStr, TotalSize, StartPos, BinAcc) ->
    case TotalSize > StartPos of
