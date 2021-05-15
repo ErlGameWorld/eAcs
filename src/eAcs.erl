@@ -237,7 +237,7 @@ dealMatchList([{_OldByteIndex, OldMatchWordCnt, OldWordIndex} | LeftMatchList] =
    CurStartIndex = CurWordIndex - MatchWordCnt,
    OldStartIndex = OldWordIndex - OldMatchWordCnt,
    if
-      CurStartIndex > OldWordIndex + 1 ->
+      CurStartIndex >= OldWordIndex + 1 ->
          [{CurByteIndex, MatchWordCnt, CurWordIndex} | OldMatchList];
       CurStartIndex >= OldStartIndex ->
          [{CurByteIndex, CurWordIndex - OldStartIndex, CurWordIndex} | LeftMatchList];
