@@ -183,19 +183,26 @@ genGoto(Goto, StrAcc) ->
 doGenGoto([], StrAcc) ->
    <<StrAcc/binary, "goto(_) -> undefined.\n\n">>;
 doGenGoto([{K, V}], StrAcc) ->
-   case maps:size(V) > 0 of
-      true ->
-         <<StrAcc/binary, "goto(", (integer_to_binary(K))/binary, ") -> ", (iolist_to_binary(io_lib:format(<<"~w">>, [V])))/binary, ";\ngoto(_) -> undefined.\n\n">>;
+   case maps:size(V) of
+      0 ->
+         <<StrAcc/binary, "goto(_) -> undefined.\n\n">>;
+      1 ->
+         [TupleKV] = maps:to_list(V),
+         <<StrAcc/binary, "goto(", (integer_to_binary(K))/binary, ") -> ", (iolist_to_binary(io_lib:format(<<"~w">>, [TupleKV])))/binary, ";\ngoto(_) -> undefined.\n\n">>;
       _ ->
-         <<StrAcc/binary, "goto(_) -> undefined.\n\n">>
+         <<StrAcc/binary, "goto(", (integer_to_binary(K))/binary, ") -> ", (iolist_to_binary(io_lib:format(<<"~w">>, [V])))/binary, ";\ngoto(_) -> undefined.\n\n">>
    end;
 doGenGoto([{K, V} | SortKvs], StrAcc) ->
-   case maps:size(V) > 0 of
-      true ->
-         NewStrAcc = <<StrAcc/binary, "goto(", (integer_to_binary(K))/binary, ") -> ", (iolist_to_binary(io_lib:format(<<"~w">>, [V])))/binary, ";\n">>,
+   case maps:size(V) of
+      0 ->
+         doGenGoto(SortKvs, StrAcc);
+      1 ->
+         [TupleKV] = maps:to_list(V),
+         NewStrAcc = <<StrAcc/binary, "goto(", (integer_to_binary(K))/binary, ") -> ", (iolist_to_binary(io_lib:format(<<"~w">>, [TupleKV])))/binary, ";\n">>,
          doGenGoto(SortKvs, NewStrAcc);
       _ ->
-         doGenGoto(SortKvs, StrAcc)
+         NewStrAcc = <<StrAcc/binary, "goto(", (integer_to_binary(K))/binary, ") -> ", (iolist_to_binary(io_lib:format(<<"~w">>, [V])))/binary, ";\n">>,
+         doGenGoto(SortKvs, NewStrAcc)
    end.
 
 genFailOut([], _Fail, _Output, StrAcc) ->

@@ -27,8 +27,7 @@ doMatchMs(<<Word/utf8, Tail/binary>>, State, Index, MatchList) ->
    end.
 
 matchWordMs(Word, State, Index, MatchList) ->
-   Node = acsTree:goto(State),
-   case Node of
+   case acsTree:goto(State) of
       undefined ->
          case State of
             0 ->
@@ -37,8 +36,11 @@ matchWordMs(Word, State, Index, MatchList) ->
                {NextState, _} = acsTree:failOut(State),
                matchWordMs(Word, NextState, Index, MatchList)
          end;
-      _ ->
+      Node ->
          case Node of
+            {Word, NextState} ->
+               NewMatchList = getOutputMs(NextState, Index, MatchList),
+               {NextState, NewMatchList};
             #{Word := NextState} ->
                NewMatchList = getOutputMs(NextState, Index, MatchList),
                {NextState, NewMatchList};
@@ -87,8 +89,7 @@ doMatchIs(<<Word/utf8, Tail/binary>>, State) ->
    end.
 
 matchWordIs(Word, State) ->
-   Node = acsTree:goto(State),
-   case Node of
+   case acsTree:goto(State) of
       undefined ->
          case State of
             0 ->
@@ -97,8 +98,15 @@ matchWordIs(Word, State) ->
                {NextState, _} = acsTree:failOut(State),
                matchWordIs(Word, NextState)
          end;
-      _ ->
+      Node ->
          case Node of
+            {Word, NextState} ->
+               case getOutputIs(NextState) of
+                  false ->
+                     NextState;
+                  _ ->
+                     true
+               end;
             #{Word := NextState} ->
                case getOutputIs(NextState) of
                   false ->
@@ -264,8 +272,7 @@ doMatchRs(<<Word/utf8, Tail/binary>>, TotalSize, CurIndex, State, MatchList) ->
    end.
 
 matchWordRs(Word, State, MatchCnt) ->
-   Node = acsTree:goto(State),
-   case Node of
+   case acsTree:goto(State) of
       undefined ->
          case State of
             0 ->
@@ -274,8 +281,11 @@ matchWordRs(Word, State, MatchCnt) ->
                {NextState, _} = acsTree:failOut(State),
                matchWordRs(Word, NextState, MatchCnt)
          end;
-      _ ->
+      Node ->
          case Node of
+            {Word, NextState} ->
+               NewMatchCnt = getOutputRs(NextState, MatchCnt),
+               {NextState, NewMatchCnt};
             #{Word := NextState} ->
                NewMatchCnt = getOutputRs(NextState, MatchCnt),
                {NextState, NewMatchCnt};
