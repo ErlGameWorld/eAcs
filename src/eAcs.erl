@@ -13,134 +13,123 @@
 %% *************************************** matchSw start ***************************************************************
 -spec matchSw(BinStr :: binary()) -> [{StartIndex :: integer(), EndIndex :: integer(), Pattern :: binary()}].
 matchSw(BinStr) ->
-   doMatchMs(BinStr, 0, _Index = 1, _MatchList = []).
+   doMatchMs(BinStr, _PtrInx = 0, _Index = 1, _MatchList = []).
 
 doMatchMs(<<>>, _, _Index, MatchList) ->
    MatchList;
-doMatchMs(<<Word/utf8, Tail/binary>>, State, Index, MatchList) ->
+doMatchMs(<<Word/utf8, Tail/binary>>, PtrInx, Index, MatchList) ->
    case acsSpw:getSpw(Word) of
       true ->
-         doMatchMs(Tail, State, Index, MatchList);
+         doMatchMs(Tail, PtrInx, Index, MatchList);
       _ ->
-         {NewState, NewMatchList} = matchWordMs(Word, State, Index, MatchList),
-         doMatchMs(Tail, NewState, Index + 1, NewMatchList)
+         {NewPtrInx, NewMatchList} = matchWordMs(Word, PtrInx, Index, MatchList),
+         doMatchMs(Tail, NewPtrInx, Index + 1, NewMatchList)
    end.
 
-matchWordMs(Word, State, Index, MatchList) ->
-   case acsTree:goto(State) of
-      undefined ->
-         case State of
+matchWordMs(Word, PtrInx, Index, MatchList) ->
+   case acsTree:goto(PtrInx) of
+      {Word, NextPtrInx} ->
+         NewMatchList = getOutputMs(NextPtrInx, Index, MatchList),
+         {NextPtrInx, NewMatchList};
+      #{Word := NextPtrInx} ->
+         NewMatchList = getOutputMs(NextPtrInx, Index, MatchList),
+         {NextPtrInx, NewMatchList};
+      _ ->
+         case PtrInx of
             0 ->
-               {State, MatchList};
+               {PtrInx, MatchList};
             _ ->
-               {NextState, _} = acsTree:failOut(State),
-               matchWordMs(Word, NextState, Index, MatchList)
-         end;
-      Node ->
-         case Node of
-            {Word, NextState} ->
-               NewMatchList = getOutputMs(NextState, Index, MatchList),
-               {NextState, NewMatchList};
-            #{Word := NextState} ->
-               NewMatchList = getOutputMs(NextState, Index, MatchList),
-               {NextState, NewMatchList};
-            _ ->
-               case State of
-                  0 ->
-                     {State, MatchList};
-                  _ ->
-                     {NextState, _} = acsTree:failOut(State),
-                     matchWordMs(Word, NextState, Index, MatchList)
+               case acsTree:failOut(PtrInx) of
+                  {NextPtrInx, _} ->
+                     matchWordMs(Word, NextPtrInx, Index, MatchList);
+                  NextPtrInx ->
+                     matchWordMs(Word, NextPtrInx, Index, MatchList)
                end
          end
    end.
 
 getOutputMs(0, _Index, MatchList) ->
    MatchList;
-getOutputMs(State, Index, MatchList) ->
-   {FailState, Pattern} = acsTree:failOut(State),
-   case Pattern of
-      undefined ->
-         getOutputMs(FailState, Index, MatchList);
-      _ ->
+getOutputMs(PtrInx, Index, MatchList) ->
+   case acsTree:failOut(PtrInx) of
+      0 ->
+         MatchList;
+      {FailPtrInx, Pattern} ->
          NewMatchList = [{Index - Pattern + 1, Pattern} | MatchList],
-         getOutputMs(FailState, Index, NewMatchList)
+         getOutputMs(FailPtrInx, Index, NewMatchList);
+      FailPtrInx ->
+         getOutputMs(FailPtrInx, Index, MatchList)
    end.
 
 %% *************************************** matchSw end   ***************************************************************
 %% *************************************** isHasSw start ***************************************************************
 -spec isHasSw(BinStr :: binary()) -> boolean().
 isHasSw(BinStr) ->
-   doMatchIs(BinStr, 0).
+   doMatchIs(BinStr, _PtrInx = 0).
 
 doMatchIs(<<>>, _) ->
    false;
-doMatchIs(<<Word/utf8, Tail/binary>>, State) ->
+doMatchIs(<<Word/utf8, Tail/binary>>, PtrInx) ->
    case acsSpw:getSpw(Word) of
       true ->
-         doMatchIs(Tail, State);
+         doMatchIs(Tail, PtrInx);
       _ ->
-         case matchWordIs(Word, State) of
+         case matchWordIs(Word, PtrInx) of
             true ->
                true;
-            NewState ->
-               doMatchIs(Tail, NewState)
+            NewPtrInx ->
+               doMatchIs(Tail, NewPtrInx)
          end
    end.
 
-matchWordIs(Word, State) ->
-   case acsTree:goto(State) of
-      undefined ->
-         case State of
-            0 ->
-               State;
+matchWordIs(Word, PtrInx) ->
+   case acsTree:goto(PtrInx) of
+      {Word, NextPtrInx} ->
+         case getOutputIs(NextPtrInx) of
+            false ->
+               NextPtrInx;
             _ ->
-               {NextState, _} = acsTree:failOut(State),
-               matchWordIs(Word, NextState)
+               true
          end;
-      Node ->
-         case Node of
-            {Word, NextState} ->
-               case getOutputIs(NextState) of
-                  false ->
-                     NextState;
-                  _ ->
-                     true
-               end;
-            #{Word := NextState} ->
-               case getOutputIs(NextState) of
-                  false ->
-                     NextState;
-                  _ ->
-                     true
-               end;
+      #{Word := NextPtrInx} ->
+         case getOutputIs(NextPtrInx) of
+            false ->
+               NextPtrInx;
             _ ->
-               case State of
-                  0 ->
-                     State;
-                  _ ->
-                     {NextState, _} = acsTree:failOut(State),
-                     matchWordIs(Word, NextState)
+               true
+         end;
+      _ ->
+         case PtrInx of
+            0 ->
+               PtrInx;
+            _ ->
+               case acsTree:failOut(PtrInx) of
+                  {NextPtrInx, _} ->
+                     matchWordIs(Word, NextPtrInx);
+                  NextPtrInx ->
+                     matchWordIs(Word, NextPtrInx)
                end
          end
    end.
 
 getOutputIs(0) ->
    false;
-getOutputIs(State) ->
-   {FailState, Pattern} = acsTree:failOut(State),
-   case Pattern of
-      undefined ->
-         getOutputIs(FailState);
-      _ ->
-         true
+getOutputIs(PtrInx) ->
+   case acsTree:failOut(PtrInx) of
+      0 ->
+         false;
+      {_FailPtrInx, _Pattern} ->
+         true;
+      FailPtrInx ->
+         getOutputIs(FailPtrInx)
    end.
+
 %% *************************************** matchSw end   ***************************************************************
 %% *************************************** replaceSw start *************************************************************
 -spec replaceSw(BinStr :: binary()) -> ReBinStr :: binary().
 replaceSw(BinStr) ->
    TotalSize = byte_size(BinStr),
-   case doMatchRs(BinStr, TotalSize - 1, _Index = 1, _State = 0, _MatchList = []) of
+   case doMatchRs(BinStr, TotalSize - 1, _Index = 1, _PtrInx = 0, _MatchList = []) of
       [] ->
          BinStr;
       MatchBIMWs ->
@@ -150,7 +139,7 @@ replaceSw(BinStr) ->
 -spec isHasRpSw(BinStr :: binary()) -> {IsHasSw :: boolean(), ReBinStr :: binary()}.
 isHasRpSw(BinStr) ->
    TotalSize = byte_size(BinStr),
-   case doMatchRs(BinStr, TotalSize - 1, _Index = 1, _State = 0, _MatchList = []) of
+   case doMatchRs(BinStr, TotalSize - 1, _Index = 1, _PtrInx = 0, _MatchList = []) of
       [] ->
          {false, BinStr};
       MatchBIMWs ->
@@ -253,49 +242,42 @@ dealMatchList([{_OldByteIndex, OldMatchWordCnt, OldWordIndex} | LeftMatchList] =
          dealMatchList(LeftMatchList, CurByteIndex, MatchWordCnt, CurWordIndex)
    end.
 
-doMatchRs(<<>>, _TotalSize, _CurIndex, _State, MatchList) ->
+doMatchRs(<<>>, _TotalSize, _CurIndex, _PtrInx, MatchList) ->
    MatchList;
-doMatchRs(<<Word/utf8, Tail/binary>>, TotalSize, CurIndex, State, MatchList) ->
+doMatchRs(<<Word/utf8, Tail/binary>>, TotalSize, CurIndex, PtrInx, MatchList) ->
    case acsSpw:getSpw(Word) of
       true ->
-         doMatchRs(Tail, TotalSize, CurIndex, State, MatchList);
+         doMatchRs(Tail, TotalSize, CurIndex, PtrInx, MatchList);
       _ ->
-         {NewState, MatchCnt} = matchWordRs(Word, State, 0),
+         {NewPtrInx, MatchCnt} = matchWordRs(Word, PtrInx, 0),
          case MatchCnt of
             0 ->
-               doMatchRs(Tail, TotalSize, CurIndex + 1, NewState, MatchList);
+               doMatchRs(Tail, TotalSize, CurIndex + 1, NewPtrInx, MatchList);
             _ ->
                LeftSize = byte_size(Tail),
                NewMatchList = dealMatchList(MatchList, TotalSize - LeftSize, MatchCnt, CurIndex),
-               doMatchRs(Tail, TotalSize, CurIndex + 1, NewState, NewMatchList)
+               doMatchRs(Tail, TotalSize, CurIndex + 1, NewPtrInx, NewMatchList)
          end
    end.
 
-matchWordRs(Word, State, MatchCnt) ->
-   case acsTree:goto(State) of
-      undefined ->
-         case State of
+matchWordRs(Word, PtrInx, MatchCnt) ->
+   case acsTree:goto(PtrInx) of
+      {Word, NextPtrInx} ->
+         NewMatchCnt = getOutputRs(NextPtrInx, MatchCnt),
+         {NextPtrInx, NewMatchCnt};
+      #{Word := NextPtrInx} ->
+         NewMatchCnt = getOutputRs(NextPtrInx, MatchCnt),
+         {NextPtrInx, NewMatchCnt};
+      _ ->
+         case PtrInx of
             0 ->
-               {State, MatchCnt};
+               {PtrInx, MatchCnt};
             _ ->
-               {NextState, _} = acsTree:failOut(State),
-               matchWordRs(Word, NextState, MatchCnt)
-         end;
-      Node ->
-         case Node of
-            {Word, NextState} ->
-               NewMatchCnt = getOutputRs(NextState, MatchCnt),
-               {NextState, NewMatchCnt};
-            #{Word := NextState} ->
-               NewMatchCnt = getOutputRs(NextState, MatchCnt),
-               {NextState, NewMatchCnt};
-            _ ->
-               case State of
-                  0 ->
-                     {State, MatchCnt};
-                  _ ->
-                     {NextState, _} = acsTree:failOut(State),
-                     matchWordRs(Word, NextState, MatchCnt)
+               case acsTree:failOut(PtrInx) of
+                  {NextPtrInx, _} ->
+                     matchWordRs(Word, NextPtrInx, MatchCnt);
+                  NextPtrInx ->
+                     matchWordRs(Word, NextPtrInx, MatchCnt)
                end
          end
    end.
@@ -303,19 +285,22 @@ matchWordRs(Word, State, MatchCnt) ->
 %% 获取当前字符最大匹配数
 getOutputRs(0, MatchCnt) ->
    MatchCnt;
-getOutputRs(State, MatchCnt) ->
-   {FailState, Pattern} = acsTree:failOut(State),
-   case Pattern of
-      undefined ->
-         getOutputRs(FailState, MatchCnt);
-      _ ->
+getOutputRs(PtrInx, MatchCnt) ->
+   case acsTree:failOut(PtrInx) of
+      0 ->
+         MatchCnt;
+      {FailPtrInx, Pattern} ->
          case Pattern > MatchCnt of
             true ->
-               getOutputRs(FailState, Pattern);
+               getOutputRs(FailPtrInx, Pattern);
             _ ->
-               getOutputRs(FailState, MatchCnt)
-         end
+               getOutputRs(FailPtrInx, MatchCnt)
+         end;
+      FailPtrInx ->
+         getOutputRs(FailPtrInx, MatchCnt)
+
    end.
+
 % *************************************** replaceSw end   *************************************************************
 
 strSize(<<>>, Cnt) ->
